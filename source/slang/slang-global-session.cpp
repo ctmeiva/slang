@@ -3,6 +3,7 @@
 
 #include "compiler-core/slang-artifact-desc-util.h"
 #include "core/slang-archive-file-system.h"
+#include "core/slang-io.h"
 #include "core/slang-performance-profiler.h"
 #include "core/slang-type-convert-util.h"
 #include "slang-check-impl.h"
@@ -905,12 +906,26 @@ Session::setDownstreamCompilerPath(SlangPassThrough inPassThrough, char const* p
         int(passThrough) > int(PassThroughMode::None) &&
         int(passThrough) < int(PassThroughMode::CountOf));
 
-    if (m_downstreamCompilerPaths[int(passThrough)] != path)
+    // The `-<compiler>-path` options expect a directory containing the compiler
+    // executable or library.  Users often pass the full path to the executable
+    // instead (e.g. `-metal-path "C:\...\bin\metal.exe"`).  When the path refers
+    // to an existing file rather than a directory, use its parent directory so
+    // that the downstream compiler locator can append the executable name itself.
+    String normalizedPath(path);
+    SlangPathType pathType;
+    if (normalizedPath.getLength() &&
+        SLANG_SUCCEEDED(Path::getPathType(normalizedPath, &pathType)) &&
+        pathType == SLANG_PATH_TYPE_FILE)
+    {
+        normalizedPath = Path::getParentDirectory(normalizedPath);
+    }
+
+    if (m_downstreamCompilerPaths[int(passThrough)] != normalizedPath)
     {
         // Make access redetermine compiler
         resetDownstreamCompiler(passThrough);
         // Set the path
-        m_downstreamCompilerPaths[int(passThrough)] = path;
+        m_downstreamCompilerPaths[int(passThrough)] = normalizedPath;
     }
 }
 
