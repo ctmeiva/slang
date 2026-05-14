@@ -152,6 +152,24 @@ void printDiagnosticArg(StringBuilder& sb, Decl* decl)
 {
     if (!decl)
         return;
+    // Unwrap GenericDecl to check for constructors inside.
+    auto innerDecl = maybeGetInner(decl);
+    if (as<ConstructorDecl>(innerDecl))
+    {
+        // Print constructors as "TypeName.init" instead of the internal "$init" name.
+        // Walk up past GenericDecl wrappers to find the parent type.
+        auto parentDecl = decl->parentDecl;
+        if (parentDecl)
+        {
+            auto parentInner = maybeGetInner(parentDecl);
+            if (parentInner->getName() && parentInner->getName()->text.getLength())
+            {
+                sb << getText(parentInner->getName()) << ".";
+            }
+        }
+        sb << "init";
+        return;
+    }
     if (decl->getName() && decl->getName()->text.getLength())
         sb << getText(decl->getName());
     else
